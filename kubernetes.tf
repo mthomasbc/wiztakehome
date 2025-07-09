@@ -124,3 +124,32 @@ module "irsa-ebs-csi" {
   role_policy_arns              = [data.aws_iam_policy.ebs_csi_policy.arn]
   oidc_fully_qualified_subjects = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
 }
+resource "aws_network_interface" "wiz" {
+  
+  subnet_id = module.vpc.public_subnets[0]
+
+  tags = {
+    Name = "wiz_network_interface"
+  }
+}
+
+resource "aws_key_pair" "my_key_pair" {
+  key_name   = "my-key-pair"  # Replace with your desired key name
+  public_key = file("~/.ssh/id_rsa.pub") # Path to your public key file
+}
+
+resource "aws_instance" "wiz" {
+  ami           = "ami-076838d6a293cb49e"
+  instance_type = "t3.micro"
+
+  network_interface {
+    network_interface_id = aws_network_interface.wiz.id
+    device_index         = 0
+    
+  }
+
+  key_name = aws_key_pair.my_key_pair.id
+  tags = {
+    Name = "MongoDB_instance"
+  }
+}
