@@ -134,19 +134,21 @@ resource "aws_network_interface" "wiz" {
 }
 
 resource "aws_key_pair" "my_key_pair" {
-  key_name   = "my-key-pair"  # Replace with your desired key name
-  public_key = file("~/.ssh/id_rsa.pub") # Path to your public key file
+  key_name   = "id_ed25519"  # Replace with your desired key name
+  public_key = file("~/.ssh/id_ed25519.pub") # Path to your public key file
 }
 
 resource "aws_instance" "wiz" {
   ami           = "ami-076838d6a293cb49e"
   instance_type = "t3.micro"
+  subnet_id = module.vpc.public_subnets[0]
+  associate_public_ip_address = true
 
-  network_interface {
-    network_interface_id = aws_network_interface.wiz.id
-    device_index         = 0
+  # network_interface {
+    # network_interface_id = aws_network_interface.wiz.id
+    # device_index         = 0
     
-  }
+  # }
 
   key_name = aws_key_pair.my_key_pair.id
   tags = {
