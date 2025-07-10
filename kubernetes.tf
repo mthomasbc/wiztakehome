@@ -143,14 +143,9 @@ resource "aws_instance" "wiz" {
   instance_type = "t3.micro"
   subnet_id = module.vpc.public_subnets[0]
   associate_public_ip_address = true
-
-  # network_interface {
-    # network_interface_id = aws_network_interface.wiz.id
-    # device_index         = 0
-    
-  # }
-
   key_name = aws_key_pair.my_key_pair.id
+  user_data = file("${path.module}/bootstrap.sh")
+
   tags = {
     Name = "MongoDB_instance"
   }
