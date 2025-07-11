@@ -138,6 +138,26 @@ resource "aws_key_pair" "my_key_pair" {
   public_key = file("~/.ssh/id_ed25519.pub") # Path to your public key file
 }
 
+resource "aws_security_group" "wiz" {
+  name = "sg"
+  vpc_id = module.vpc.vpc_id
+
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_tls_ipv4" {
+  security_group_id = aws_security_group.wiz.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 22
+  ip_protocol       = "tcp"
+  to_port           = 22
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
+  security_group_id = aws_security_group.wiz.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1" 
+}
+
 resource "aws_instance" "wiz" {
   ami           = "ami-076838d6a293cb49e"
   instance_type = "t3.micro"
@@ -145,8 +165,27 @@ resource "aws_instance" "wiz" {
   associate_public_ip_address = true
   key_name = aws_key_pair.my_key_pair.id
   user_data = file("${path.module}/bootstrap.sh")
+  vpc_security_group_ids = [aws_security_group.wiz.id]
 
   tags = {
     Name = "MongoDB_instance"
+  }
+}
+
+resource "aws_s3_bucket" "wiz" {
+  bucket = "mongodb-backup-wizbucket"
+
+  tags = {
+    Name        = "mongo-backup-wizbucket"
+    Environment = "Dev"
+  }
+}
+
+resource "aws_ecr_repository" "wiz" {
+  name                 = "tasky-registry"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
   }
 }
