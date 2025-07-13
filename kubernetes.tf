@@ -63,6 +63,39 @@ module "vpc" {
   }
 }
 
+resource "aws_iam_role" "wiz" {
+  name = "eks-node-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_node_policy_attach_worker_node" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.wiz.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_node_policy_attach_cni" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.wiz.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_node_policy_attach_ecr_read_only" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.wiz.name
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "20.8.5"
@@ -81,6 +114,22 @@ module "eks" {
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
+
+  access_entries = {
+    node_perms = {
+      principal_arn = aws_iam_role.wiz.arn
+
+      policy_associations = {
+        example = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            namespaces = ["default"]
+            type       = "namespace"
+          }
+        }
+      }
+    }
+  }
 
   eks_managed_node_group_defaults = {
     ami_type = "AL2_x86_64"
@@ -107,6 +156,7 @@ module "eks" {
       max_size     = 2
       desired_size = 1
     }
+    
   }
 }
 
