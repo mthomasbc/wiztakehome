@@ -21,6 +21,6 @@ spec:
         - containerPort: 8080
         env:
         - name: MONGODB_URI
-          value: "mongodb://user:password@mongodb-service:27017/tasky"
+          value: "mongodb://18.117.105.49:27017/tasky"
         - name: SECRET_KEY
           value: "secret123"

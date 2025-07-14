@@ -22,6 +22,17 @@ provider "aws" {
   region = "us-east-2" # update to region
 }
 
+provider "kubernetes" {
+  config_path    = "~/.kube/config"
+  config_context = "arn:aws:eks:us-east-2:640168416096:cluster/wiz-eks-c8PEGtYV"
+}
+
+provider "helm" {
+  kubernetes = {
+    config_path = "~/.kube/config"
+  }
+}
+
 data "aws_availability_zones" "available" {
   filter {
     name   = "opt-in-status"
@@ -81,6 +92,8 @@ resource "aws_iam_role" "wiz" {
   })
 }
 
+
+
 resource "aws_iam_role_policy_attachment" "eks_node_policy_attach_worker_node" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
   role       = aws_iam_role.wiz.name
@@ -94,6 +107,12 @@ resource "aws_iam_role_policy_attachment" "eks_node_policy_attach_cni" {
 resource "aws_iam_role_policy_attachment" "eks_node_policy_attach_ecr_read_only" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
   role       = aws_iam_role.wiz.name
+}
+
+resource "aws_iam_policy" "lb" {
+  name        = "AWSLoadBalancerControllerIAMPolicy"
+  description = "EKS Load Balancer IAM policy"
+  policy = "${file("iam_policy.json")}"
 }
 
 module "eks" {
@@ -163,6 +182,74 @@ module "eks" {
 data "aws_iam_policy" "ebs_csi_policy" {
   arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
+
+module "lb_role" {
+  source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "5.59.0"
+
+  role_name                              = "wiz_eks_lb"
+  attach_load_balancer_controller_policy = true
+
+  oidc_providers = {
+      main = {
+      provider_arn               = module.eks.oidc_provider
+      namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
+    }
+  }
+}
+
+resource "kubernetes_service_account" "service-account" {
+  metadata {
+      name      = "aws-load-balancer-controller"
+      namespace = "kube-system"
+      labels = {
+        "app.kubernetes.io/name"      = "aws-load-balancer-controller"
+        "app.kubernetes.io/component" = "controller"
+      }
+      annotations = {
+        "eks.amazonaws.com/role-arn"               = module.lb_role.iam_role_arn
+        "eks.amazonaws.com/sts-regional-endpoints" = "true"
+      }
+  }
+}
+
+resource "helm_release" "alb-controller" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  depends_on = [
+      kubernetes_service_account.service-account
+  ]
+
+  set = [
+    {
+      name  = "region"
+      value = "us-east-2"
+    },
+    {
+      name  = "vpcId"
+      value = module.vpc.vpc_id
+    },
+    {
+      name  = "image.repository"
+      value = "602401143452.dkr.ecr.us-east-2.amazonaws.com/amazon/aws-load-balancer-controller"
+    },
+    {
+      name  = "serviceAccount.create"
+      value = "false"
+    },
+    {
+      name  = "serviceAccount.name"
+      value = "aws-load-balancer-controller"
+    },
+    {
+      name  = "clusterName"
+      value = module.eks.cluster_name
+    }
+  ]
+ }
+
 
 module "irsa-ebs-csi" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
