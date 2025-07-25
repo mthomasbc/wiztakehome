@@ -24,7 +24,7 @@ provider "aws" {
 
 provider "kubernetes" {
   config_path    = "~/.kube/config"
-  config_context = "arn:aws:eks:us-east-2:640168416096:cluster/wiz-eks-c8PEGtYV"
+  config_context = "arn:aws:eks:us-east-2:************:cluster/wiz-eks-c8PEGtYV"
 }
 
 provider "helm" {
@@ -271,8 +271,8 @@ resource "aws_network_interface" "wiz" {
 }
 
 resource "aws_key_pair" "my_key_pair" {
-  key_name   = "id_ed25519"  # Replace with your desired key name
-  public_key = file("~/.ssh/id_ed25519.pub") # Path to your public key file
+  key_name   = "*********"  # Replace with your desired key name
+  public_key = file("~/.ssh/********.pub") # Path to your public key file
 }
 
 resource "aws_security_group" "wiz" {
