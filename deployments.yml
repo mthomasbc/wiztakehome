@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: tasky
-        image: 640168416096.dkr.ecr.us-east-2.amazonaws.com/tasky-registry:latest
+        image: ************.dkr.ecr.us-east-2.amazonaws.com/tasky-registry:latest
         ports:
         - containerPort: 8080
         env:
